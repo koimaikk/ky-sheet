@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KY活動シート v1.1</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Oswald:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --yellow: #FFD100;
+  --orange: #FF6B00;
+  --blue: #1a73e8;
+  --black: #0f0f0f;
+  --dark: #161616;
+  --gray: #222222;
+  --mid: #2e2e2e;
+  --border: #383838;
+  --light: #F0EFE8;
+  --muted: #888;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans JP', sans-serif; background: var(--black); color: var(--light); min-height: 100vh; }
+
+/* ===== HEADER ===== */
+header {
+  background: var(--yellow); color: var(--black);
+  padding: 10px 24px; display: flex; align-items: center; gap: 14px;
+  border-bottom: 3px solid var(--orange); position: sticky; top: 0; z-index: 100;
+}
+header h1 { font-family: 'Oswald', sans-serif; font-size: 1.3rem; letter-spacing: 0.06em; }
+header .sub { font-size: 0.62rem; font-weight: 700; opacity: 0.6; margin-top: 1px; }
+header .ver { font-size: 0.6rem; background: var(--orange); color: white; padding: 2px 7px; border-radius: 10px; margin-left: 6px; font-weight: 700; vertical-align: middle; }
+.settings-toggle {
+  margin-left: auto; background: rgba(0,0,0,0.12); border: 1px solid rgba(0,0,0,0.2);
+  color: var(--black); padding: 7px 16px; border-radius: 4px; cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif; font-size: 0.8rem; font-weight: 700;
+  display: flex; align-items: center; gap: 6px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
+}
+
+/* ===== 設定モーダル ===== */
+.settings-panel {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88); z-index: 8000;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 16px;
+}
+.settings-panel.open { display: block; }
+.settings-inner {
+  background: #1a1a1a; border: 2px solid var(--orange); border-radius: 8px;
+  padding: 20px; width: 100%; max-width: 700px;
+  margin: 0 auto; position: relative;
+}
+.settings-close-btn {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(255,107,0,0.2); border: 1px solid var(--orange);
+  color: var(--orange); font-size: 1.2rem; width: 40px; height: 40px;
+  border-radius: 6px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.settings-panel-title {
+  font-family: 'Oswald', sans-serif; font-size: 1rem; color: var(--orange);
+  margin-bottom: 18px; padding-right: 48px; letter-spacing: 0.06em;
+}
+.settings-section {
+  font-family: 'Oswald', sans-serif; font-size: 0.75rem; letter-spacing: 0.15em;
+  color: var(--orange); text-transform: uppercase; margin: 16px 0 10px;
+  padding-bottom: 4px; border-bottom: 1px solid #333;
+}
+
+/* ===== 設定メニュー ===== */
+.settings-page { display: none; }
+.settings-page.active { display: block; }
+.settings-menu-list {
+  display: flex; flex-direction: column; gap: 10px; margin-top: 8px;
+}
+.settings-menu-item {
+  background: #222; border: 1px solid var(--border); border-radius: 8px;
+  padding: 16px 18px; display: flex; align-items: center; gap: 14px;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  width: 100%; text-align: left;
+}
+.settings-menu-item:hover { background: #2a2a2a; border-color: var(--orange); }
+.settings-menu-item:active { background: #333; }
+.menu-icon { font-size: 1.5rem; width: 36px; text-align: center; flex-shrink: 0; }
+.menu-text { flex: 1; }
+.menu-title {
+  font-family: 'Oswald', sans-serif; font-size: 0.95rem; color: var(--light);
+  letter-spacing: 0.04em; display: block;
+}
+.menu-desc { font-size: 0.72rem; color: var(--muted); margin-top: 2px; display: block; }
+.menu-arrow { color: var(--orange); font-size: 1.1rem; flex-shrink: 0; }
+.menu-status { font-size: 0.68rem; margin-top: 3px; display: block; }
+.menu-status.ok { color: #2a6; }
+.menu-status.ng { color: #f66; }
+.menu-status.warn { color: var(--muted); }
+
+/* 戻るボタン */
+.back-btn {
+  background: transparent; border: 1px solid #555; color: #aaa;
+  padding: 8px 16px; border-radius: 4px; cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif; font-size: 0.85rem;
+  display: flex; align-items: center; gap: 6px; margin-bottom: 16px;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  min-height: 40px;
+}
+.back-btn:hover { border-color: var(--orange); color: var(--orange); }
+.page-title {
+  font-family: 'Oswald', sans-serif; font-size: 0.95rem; color: var(--orange);
+  letter-spacing: 0.06em; margin-bottom: 14px; padding-bottom: 8px;
+  border-bottom: 1px solid #333;
+}
+.settings-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.settings-label { font-size: 0.75rem; color: var(--yellow); font-weight: 700; min-width: 80px; font-family: 'Oswald', sans-serif; }
+.settings-status { font-size: 0.72rem; color: var(--muted); margin-bottom: 10px; padding-left: 4px; }
+
+.inp {
+  background: #2a2a2a; border: 1px solid var(--border); color: var(--light);
+  padding: 9px 12px; border-radius: 4px; font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.88rem; outline: none; transition: border-color 0.2s;
+}
+.inp:focus { border-color: var(--yellow); }
+
+/* ===== プロジェクト行 ===== */
+.project-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.project-row {
+  background: #222; border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.project-row-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row-label { font-size: 0.72rem; color: var(--yellow); font-weight: 700; white-space: nowrap; min-width: 72px; font-family: 'Oswald', sans-serif; }
+.inp-name { flex: 2; min-width: 150px; }
+.inp-place { flex: 2; min-width: 150px; }
+.inp-coord { flex: 1; min-width: 100px; background: #1e1e1e; color: #aaa; font-size: 0.78rem; }
+.map-pick-btn {
+  background: #2a6; color: white; border: none; border-radius: 4px;
+  padding: 8px 14px; cursor: pointer; font-size: 0.8rem; font-weight: 700;
+  font-family: 'Noto Sans JP', sans-serif; white-space: nowrap;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.del-btn {
+  background: #c00; color: white; border: none; border-radius: 4px;
+  padding: 8px 12px; cursor: pointer; font-size: 0.8rem; white-space: nowrap;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.coord-status { font-size: 0.72rem; color: #2a6; }
+.coord-status.empty { color: var(--muted); }
+
+.settings-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.add-btn {
+  background: var(--orange); color: white; border: none; border-radius: 4px;
+  padding: 9px 18px; cursor: pointer; font-size: 0.85rem;
+  font-family: 'Noto Sans JP', sans-serif; font-weight: 700;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.save-btn {
+  background: var(--yellow); color: var(--black); border: none; border-radius: 4px;
+  padding: 9px 18px; cursor: pointer; font-size: 0.85rem;
+  font-family: 'Oswald', sans-serif; font-weight: 700; letter-spacing: 0.06em;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.blue-btn {
+  background: var(--blue); color: white; border: none; border-radius: 4px;
+  padding: 9px 18px; cursor: pointer; font-size: 0.85rem;
+  font-family: 'Noto Sans JP', sans-serif; font-weight: 700;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.settings-hint { font-size: 0.72rem; color: var(--muted); margin-top: 10px; line-height: 1.7; }
+
+/* ===== 予約一覧 ===== */
+.reservation-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.reservation-item {
+  background: #1e2d40; border: 1px solid var(--blue); border-radius: 6px;
+  padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.reservation-item.sent { background: #1b3a1b; border-color: #2a6; opacity: 0.8; }
+.reservation-info { flex: 1; min-width: 200px; }
+.reservation-date { font-size: 0.82rem; font-weight: 700; color: var(--yellow); }
+.reservation-project { font-size: 0.78rem; color: #ccc; margin-top: 2px; }
+.reservation-status { font-size: 0.7rem; color: #5b9ef7; margin-top: 2px; }
+.reservation-del-btn {
+  background: #c00; color: white; border: none; border-radius: 4px;
+  padding: 6px 12px; cursor: pointer; font-size: 0.78rem; white-space: nowrap;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+
+
+
+/* ===== バックアップ ===== */
+.backup-box {
+  background: #1e1e1e; border: 1px solid var(--border); border-radius: 4px;
+  padding: 10px; margin-bottom: 8px;
+}
+.backup-textarea {
+  width: 100%; background: #111; border: 1px solid #444; color: #aaa;
+  padding: 8px; border-radius: 4px; font-size: 0.72rem; font-family: monospace;
+  resize: vertical; min-height: 80px;
+}
+
+/* ===== 時刻設定 ===== */
+.time-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.time-select {
+  background: #2a2a2a; border: 1px solid var(--border); color: var(--light);
+  padding: 8px 10px; border-radius: 4px; font-size: 0.88rem; outline: none;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+
+/* ===== 地図モーダル ===== */
+.map-modal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  z-index: 9000; align-items: center; justify-content: center; padding: 16px;
+}
+.map-modal.open { display: flex; }
+.map-modal-inner {
+  background: #1a1a1a; border: 2px solid var(--orange); border-radius: 8px;
+  width: 100%; max-width: 780px; max-height: 90vh;
+  display: flex; flex-direction: column;
+}
+.map-modal-header {
+  background: var(--orange); color: white; padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: 'Oswald', sans-serif; font-size: 0.9rem;
+}
+.map-close-btn {
+  background: rgba(0,0,0,0.2); border: none; color: white; cursor: pointer;
+  font-size: 1.1rem; width: 32px; height: 32px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
+}
+.map-hint {
+  background: #222; padding: 10px 16px; font-size: 0.8rem; color: #ccc;
+  border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.map-hint .coord-preview { margin-left: auto; font-size: 0.82rem; color: var(--yellow); }
+#map-container { flex: 1; min-height: 350px; }
+.map-modal-footer {
+  background: #1a1a1a; padding: 12px 16px;
+  display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border);
+}
+.map-confirm-btn {
+  background: var(--yellow); color: var(--black); border: none; border-radius: 4px;
+  padding: 9px 24px; cursor: pointer; font-family: 'Oswald', sans-serif;
+  font-size: 0.95rem; font-weight: 700; touch-action: manipulation;
+}
+.map-confirm-btn:disabled { background: #444; color: #777; cursor: not-allowed; }
+.map-cancel-btn {
+  background: transparent; color: #aaa; border: 1px solid #555; border-radius: 4px;
+  padding: 9px 20px; cursor: pointer; font-size: 0.85rem; touch-action: manipulation;
+}
+
+/* ===== 日時指定モーダル ===== */
+.schedule-modal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+  z-index: 9500; align-items: center; justify-content: center; padding: 16px;
+}
+.schedule-modal.open { display: flex; }
+.schedule-modal-inner {
+  background: #1a1a1a; border: 2px solid var(--blue); border-radius: 8px;
+  width: 100%; max-width: 460px; padding: 24px;
+}
+.schedule-modal-title {
+  font-family: 'Oswald', sans-serif; font-size: 1rem; color: var(--blue);
+  margin-bottom: 18px; letter-spacing: 0.06em;
+}
+.schedule-field { margin-bottom: 14px; }
+.schedule-field-label { font-size: 0.75rem; color: var(--yellow); font-weight: 700; margin-bottom: 6px; display: block; }
+.schedule-modal-btns { display: flex; gap: 8px; margin-top: 18px; }
+
+/* ===== 操作バー ===== */
+.op-bar {
+  background: var(--gray); padding: 10px 24px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+.op-group { display: flex; align-items: center; gap: 8px; }
+.op-label { font-size: 0.72rem; color: var(--muted); font-weight: 700; white-space: nowrap; }
+select.op-select {
+  background: #252525; border: 1px solid #555; color: var(--light);
+  padding: 7px 12px; border-radius: 4px; font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.88rem; cursor: pointer; outline: none; min-width: 180px;
+}
+input[type="date"].op-date {
+  background: #252525; border: 1px solid #555; color: var(--light);
+  padding: 7px 12px; border-radius: 4px; font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.88rem; cursor: pointer; outline: none; color-scheme: dark;
+}
+#weather-box {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+  background: rgba(255,209,0,0.08); border: 1px solid rgba(255,209,0,0.25);
+  padding: 7px 14px; border-radius: 4px; font-size: 0.82rem; flex-wrap: wrap;
+}
+#w-icon { font-size: 1.4rem; }
+#w-label { font-size: 0.65rem; color: var(--yellow); font-family: 'Oswald', sans-serif; letter-spacing: 0.08em; display: block; }
+#w-text { font-size: 0.85rem; display: block; }
+#w-note { font-size: 0.68rem; color: var(--muted); display: block; }
+
+/* ===== メイングリッド ===== */
+.main-grid { display: grid; grid-template-columns: 1fr 1fr; max-width: 1400px; margin: 0 auto; }
+.input-panel { padding: 20px 24px; border-right: 1px solid var(--border); }
+.output-panel { padding: 20px 24px; background: var(--dark); }
+
+.field-label {
+  font-family: 'Oswald', sans-serif; font-size: 0.65rem; letter-spacing: 0.15em;
+  color: var(--orange); text-transform: uppercase; margin-bottom: 5px; margin-top: 16px;
+}
+.field-label:first-child { margin-top: 0; }
+textarea {
+  width: 100%; background: #1e1e1e; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--light); font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.88rem; padding: 9px 12px; resize: vertical; outline: none;
+  min-height: 75px; line-height: 1.6;
+}
+textarea:focus { border-color: var(--yellow); }
+
+
+
+.generate-btn {
+  margin-top: 18px; width: 100%; padding: 14px;
+  background: var(--yellow); color: var(--black); border: none; border-radius: 4px;
+  font-family: 'Oswald', sans-serif; font-size: 1.05rem; letter-spacing: 0.08em;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-height: 50px;
+}
+.generate-btn:disabled { background: #444; color: #777; cursor: not-allowed; }
+
+.action-row { display: flex; gap: 8px; margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+.act-btn {
+  flex: 1; padding: 10px 8px; border: none; border-radius: 4px; cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif; font-size: 0.85rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-height: 48px;
+}
+.act-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-send { background: var(--orange); color: white; }
+.btn-schedule { background: var(--blue); color: white; }
+
+/* ===== 出力 ===== */
+.out-placeholder {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 400px; color: #444;
+  font-size: 0.88rem; text-align: center; gap: 14px;
+}
+.out-placeholder .ph-icon { font-size: 3rem; opacity: 0.4; }
+.loading { display: none; align-items: center; justify-content: center; min-height: 300px; flex-direction: column; gap: 14px; color: var(--muted); }
+.loading.show { display: flex; }
+.spinner { width: 36px; height: 36px; border: 3px solid #333; border-top-color: var(--yellow); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.ky-out { display: none; }
+.ky-out.show { display: block; }
+
+.out-meta { background: var(--gray); border-radius: 6px; padding: 12px 16px; margin-bottom: 14px; display: flex; gap: 16px; flex-wrap: wrap; border-left: 3px solid var(--yellow); }
+.out-meta-item { font-size: 0.82rem; }
+.out-meta-item .lbl { color: var(--muted); font-size: 0.68rem; display: block; margin-bottom: 2px; }
+.out-meta-item .val { font-weight: 700; }
+
+.section-hd { background: var(--yellow); color: var(--black); padding: 9px 14px; border-radius: 4px 4px 0 0; font-family: 'Oswald', sans-serif; font-size: 0.75rem; letter-spacing: 0.1em; }
+.section-bd { background: #1e1e1e; border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px; padding: 14px; margin-bottom: 12px; }
+
+.danger-card { border-left: 3px solid var(--orange); padding: 10px 13px; margin-bottom: 10px; background: rgba(255,107,0,0.06); border-radius: 0 4px 4px 0; }
+.danger-card:last-child { margin-bottom: 0; }
+.d-num { font-family: 'Oswald', sans-serif; color: var(--orange); font-size: 0.68rem; letter-spacing: 0.12em; }
+.d-title { font-weight: 700; font-size: 0.9rem; margin: 3px 0 5px; }
+.d-detail { font-size: 0.8rem; color: #bbb; line-height: 1.6; margin-bottom: 6px; }
+.d-measure { font-size: 0.8rem; color: #aaa; line-height: 1.6; }
+.d-measure::before { content: "→ 対策："; color: var(--yellow); font-weight: 700; font-size: 0.75rem; }
+
+.goal-box { background: rgba(255,209,0,0.07); border: 1px solid rgba(255,209,0,0.25); border-radius: 4px; padding: 12px 14px; margin-bottom: 10px; }
+.goal-lbl { font-family: 'Oswald', sans-serif; font-size: 0.65rem; letter-spacing: 0.12em; color: var(--yellow); margin-bottom: 4px; }
+.goal-txt { font-weight: 700; font-size: 0.92rem; line-height: 1.5; }
+.comment-box { background: rgba(255,255,255,0.03); border-left: 3px solid var(--yellow); padding: 12px 14px; font-size: 0.88rem; line-height: 1.8; color: #ccc; }
+.comment-lbl { font-family: 'Oswald', sans-serif; font-size: 0.65rem; letter-spacing: 0.12em; color: var(--yellow); margin-bottom: 4px; }
+
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--yellow); color: var(--black); padding: 12px 20px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; z-index: 9999; opacity: 0; transform: translateY(8px); transition: all 0.3s; pointer-events: none; max-width: 90vw; }
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* ===== レスポンシブ ===== */
+@media (max-width: 800px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .input-panel { border-right: none; border-bottom: 1px solid var(--border); }
+  #weather-box { margin-left: 0; width: 100%; }
+}
+@media (max-width: 600px) {
+  header { padding: 8px 12px; gap: 8px; }
+  header h1 { font-size: 1rem; }
+  .settings-toggle { padding: 8px 12px; font-size: 0.78rem; }
+  .settings-inner { padding: 14px; }
+  .project-row-line { flex-direction: column; align-items: stretch; }
+  .row-label { min-width: unset; }
+  .inp-name, .inp-place, .inp-coord { width: 100%; min-width: unset; }
+  .inp { font-size: 1rem; min-height: 44px; }
+  .map-pick-btn, .del-btn, .add-btn, .save-btn, .blue-btn { width: 100%; min-height: 44px; padding: 12px; font-size: 0.9rem; justify-content: center; }
+  .settings-btns { flex-direction: column; }
+  .op-bar { padding: 8px 12px; gap: 8px; }
+  select.op-select, input[type="date"].op-date { width: 100%; min-height: 44px; font-size: 1rem; }
+  .op-group { width: 100%; }
+  .input-panel, .output-panel { padding: 14px; }
+  textarea { font-size: 1rem; }
+  .generate-btn { font-size: 1rem; min-height: 52px; }
+  .action-row { flex-direction: column; }
+  .act-btn { width: 100%; min-height: 50px; font-size: 0.95rem; }
+  .map-modal { padding: 8px; }
+  #map-container { min-height: 260px; }
+  .map-confirm-btn, .map-cancel-btn { min-height: 44px; }
+  .schedule-modal-inner { padding: 16px; }
+  .schedule-modal-btns { flex-direction: column; }
+  .schedule-modal-btns .save-btn,
+  .schedule-modal-btns .map-cancel-btn { width: 100%; min-height: 48px; }
+  .reservation-item { flex-direction: column; align-items: flex-start; }
+  .reservation-del-btn { width: 100%; min-height: 44px; }
+  .time-select { min-height: 44px; font-size: 1rem; }
+}
+@media print {
+  body { background: white; color: black; }
+  header, .settings-panel, .op-bar, .input-panel, .action-row, .map-modal, .schedule-modal { display: none !important; }
+  .main-grid { grid-template-columns: 1fr; }
+  .output-panel { background: white; color: black; padding: 10px; }
+  .ky-out { display: block !important; }
+  .section-bd { background: #f9f9f9; color: black; border-color: #ccc; }
+  .danger-card { background: #fff3e0; color: black; }
+  .goal-box { background: #fffde7; border-color: #ccc; }
+  .comment-box { color: #333; }
+  .out-meta { background: #f0f0f0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<header>
+  <div style="font-size:1.6rem">⛑️</div>
+  <div>
+    <h1>KY活動シート<span class="ver">v1.1</span></h1>
+    <div class="sub">危険予知活動 — AI支援システム</div>
+  </div>
+  <button class="settings-toggle" id="settings-toggle-btn" onclick="toggleSettings()" ontouchend="event.preventDefault();toggleSettings();">⚙️ 工事設定</button>
+</header>
+
+<!-- 工事設定モーダル -->
+<div class="settings-panel" id="settings-panel" onclick="if(event.target===this)toggleSettings();" ontouchend="if(event.target===this){event.preventDefault();toggleSettings();}">
+  <div class="settings-inner">
+    <button class="settings-close-btn" id="settings-close-btn" onclick="toggleSettings()" ontouchend="event.preventDefault();toggleSettings();">✕</button>
+
+    <!-- ===== メニュー画面 ===== -->
+    <div class="settings-page active" id="page-menu">
+      <div class="settings-panel-title">⚙️ 工事設定</div>
+      <div class="settings-menu-list">
+        <button class="settings-menu-item" onclick="showSettingsPage('page-api')" ontouchend="event.preventDefault();showSettingsPage('page-api');">
+          <span class="menu-icon">🔑</span>
+          <span class="menu-text">
+            <span class="menu-title">APIキー・GAS設定</span>
+            <span class="menu-desc">Gemini APIキー・GAS URL・管理者メール</span>
+            <span class="menu-status warn" id="menu-status-api">⚠️ 未確認</span>
+          </span>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="settings-menu-item" onclick="showSettingsPage('page-projects')" ontouchend="event.preventDefault();showSettingsPage('page-projects');">
+          <span class="menu-icon">👷</span>
+          <span class="menu-text">
+            <span class="menu-title">工事登録・編集</span>
+            <span class="menu-desc">工事名・工事場所・作業員メール・座標</span>
+            <span class="menu-status warn" id="menu-status-projects">⚠️ 未登録</span>
+          </span>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="settings-menu-item" onclick="showSettingsPage('page-time')" ontouchend="event.preventDefault();showSettingsPage('page-time');">
+          <span class="menu-icon">⏰</span>
+          <span class="menu-text">
+            <span class="menu-title">送信時刻設定</span>
+            <span class="menu-desc">日時指定送信のデフォルト時刻（全工事共通）</span>
+            <span class="menu-status warn" id="menu-status-time">⚠️ 未設定</span>
+          </span>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="settings-menu-item" onclick="showSettingsPage('page-reservations')" ontouchend="event.preventDefault();showSettingsPage('page-reservations');">
+          <span class="menu-icon">📋</span>
+          <span class="menu-text">
+            <span class="menu-title">送信予約一覧</span>
+            <span class="menu-desc">登録済みの送信予約を確認・削除</span>
+            <span class="menu-status warn" id="menu-status-reservations">予約なし</span>
+          </span>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="settings-menu-item" onclick="showSettingsPage('page-backup')" ontouchend="event.preventDefault();showSettingsPage('page-backup');">
+          <span class="menu-icon">💾</span>
+          <span class="menu-text">
+            <span class="menu-title">バックアップ</span>
+            <span class="menu-desc">設定のエクスポート・インポート</span>
+          </span>
+          <span class="menu-arrow">›</span>
+        </button>
+      </div>
+      <div style="text-align:center;margin-top:20px;">
+        <button class="save-btn" onclick="toggleSettings()" ontouchend="event.preventDefault();toggleSettings();" style="width:100%;padding:14px;font-size:1rem;">✕ 閉じる</button>
+      </div>
+    </div>
+
+    <!-- ===== APIキー・GAS設定 ===== -->
+    <div class="settings-page" id="page-api">
+      <button class="back-btn" onclick="backToMenu()" ontouchend="event.preventDefault();backToMenu();">‹ メニューに戻る</button>
+      <div class="page-title">🔑 APIキー・GAS設定</div>
+
+      <div class="settings-section">▶ AIエンジン設定</div>
+      <div class="settings-row">
+        <span class="settings-label">エンジン</span>
+        <select class="inp" id="ai-engine-select" style="flex:1;max-width:280px;" onchange="saveEngine()">
+          <option value="gemini">Gemini（Google）</option>
+          <option value="groq">Groq（Llama 3.3 70B）</option>
+        </select>
+      </div>
+      <div class="settings-hint" style="margin:4px 0 10px;">※ Geminiが制限（429エラー）に達した場合はGroqに切り替えてください</div>
+      <div class="settings-row">
+        <span class="settings-label">Gemini</span>
+        <input class="inp" type="password" id="api-key-input" placeholder="Gemini APIキーを入力" style="flex:1;">
+      </div>
+      <div class="settings-status" id="api-key-status" style="margin-bottom:8px;">⚠️ APIキー未設定</div>
+      <div class="settings-row">
+        <span class="settings-label">Groq</span>
+        <input class="inp" type="password" id="groq-key-input" placeholder="Groq APIキーを入力（gsk_...）" style="flex:1;">
+      </div>
+      <div class="settings-hint" style="margin:2px 0 4px;">※ 取得：console.groq.com → API Keys → Create API Key（無料）</div>
+      <div class="settings-status" id="groq-key-status" style="margin-bottom:8px;">⚠️ Groqキー未設定（任意）</div>
+      <div class="settings-row" style="margin-top:6px;">
+        <span class="settings-label"></span>
+        <button class="save-btn" id="save-api-btn" onclick="saveApiKey()">💾 保存</button>
+        <button class="blue-btn" id="test-send-btn" onclick="testSend()" style="font-size:0.82rem;">📧 テスト送信</button>
+        <button class="blue-btn" onclick="testGasConnection()" style="font-size:0.82rem;background:#2a6;">🔌 GAS接続テスト</button>
+      </div>
+      <div id="gas-test-result" style="display:none;margin-top:8px;padding:10px;border-radius:6px;font-size:0.76rem;white-space:pre-wrap;"></div>
+
+      <div class="settings-section">▶ データ送信設定（GAS URL）</div>
+      <div class="settings-row">
+        <span class="settings-label">GAS URL</span>
+        <input class="inp" type="text" id="gas-url-input" placeholder="ウェブアプリのURLを入力" style="flex:1;">
+      </div>
+      <div class="settings-row" style="margin-top:6px;">
+        <span class="settings-label"></span>
+        <button class="save-btn" id="save-gas-btn" onclick="saveGasUrl()">💾 保存</button>
+      </div>
+      <div class="settings-status" id="gas-url-status">⚠️ GAS URL未設定</div>
+
+      <div class="settings-section">▶ 管理者設定</div>
+      <div class="settings-row" style="align-items:flex-start;">
+        <span class="settings-label" style="padding-top:8px;">管理者メール</span>
+        <textarea class="inp" id="admin-email-input" placeholder="管理者メールアドレス（1行に1つ）&#10;例：admin@example.com" rows="3" style="flex:1;resize:vertical;font-size:0.82rem;"></textarea>
+      </div>
+      <div class="settings-row" style="margin-top:6px;">
+        <span class="settings-label"></span>
+        <button class="save-btn" id="save-admin-btn" onclick="saveAdminEmail()">💾 保存</button>
+      </div>
+      <div class="settings-status" id="admin-email-status">⚠️ 管理者メール未設定</div>
+    </div>
+
+    <!-- ===== 工事登録・編集 ===== -->
+    <div class="settings-page" id="page-projects">
+      <button class="back-btn" onclick="backToMenu()" ontouchend="event.preventDefault();backToMenu();">‹ メニューに戻る</button>
+      <div class="page-title">👷 工事登録・編集</div>
+      <div style="background:#1a2a3a;border:1px solid #1a73e8;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:0.76rem;color:#8ab4f8;">
+        ☁️ 工事情報はクラウド（スプレッドシート）で自動同期されます。<br>
+        新しい端末では「クラウドから読込」を押すと既存の工事を取得できます。
+      </div>
+      <div class="settings-btns" style="margin-bottom:12px;">
+        <button class="blue-btn" onclick="manualSyncFromCloud()" style="background:#2a6;">☁️ クラウドから読込</button>
+      </div>
+      <div class="project-list" id="project-list"></div>
+      <div class="settings-btns">
+        <button class="add-btn" id="add-project-btn" onclick="addProjectRow()">＋ 工事を追加</button>
+        <button class="save-btn" id="save-projects-btn" onclick="saveProjects()">💾 保存する</button>
+      </div>
+      <div class="settings-hint" style="margin-top:10px;">
+        ※ 工事名・工事場所・作業員メール（1行に1つ）を入力し、地図で現場を選択してください。
+      </div>
+    </div>
+
+    <!-- ===== 送信時刻設定 ===== -->
+    <div class="settings-page" id="page-time">
+      <button class="back-btn" onclick="backToMenu()" ontouchend="event.preventDefault();backToMenu();">‹ メニューに戻る</button>
+      <div class="page-title">⏰ 送信時刻設定</div>
+      <div class="settings-section">▶ 日時指定送信のデフォルト時刻（全工事共通）</div>
+      <div class="time-row" style="margin-bottom:10px;">
+        <span class="settings-label">送信時刻</span>
+        <select class="time-select" id="default-hour"></select>
+        <span style="color:#aaa;">時</span>
+        <select class="time-select" id="default-min"></select>
+        <span style="color:#aaa;">分</span>
+      </div>
+      <button class="save-btn" id="save-time-btn" onclick="saveDefaultTime()" style="width:100%;padding:12px;">💾 保存する</button>
+      <div class="settings-status" id="default-time-status">⚠️ 未設定（デフォルト：07:00）</div>
+      <div class="settings-hint" style="margin-top:10px;">
+        ※ 「⏰ 日時指定送信」ボタンを押したときにこの時刻が初期値として入力されます。<br>
+        ※ 送信時に変更することもできます。
+      </div>
+    </div>
+
+    <!-- ===== 送信予約一覧 ===== -->
+    <div class="settings-page" id="page-reservations">
+      <button class="back-btn" onclick="backToMenu()" ontouchend="event.preventDefault();backToMenu();">‹ メニューに戻る</button>
+      <div class="page-title">📋 送信予約一覧</div>
+      <div class="reservation-list" id="reservation-list"></div>
+      <div id="reservation-empty" style="font-size:0.82rem;color:var(--muted);padding:8px 4px;">現在、送信予約はありません。</div>
+      <div class="settings-hint" style="margin-top:10px;">
+        ※ 削除してもスプレッドシートのデータは残ります。<br>
+        ※ 送信済みの予約は3日後に自動的に消えます。
+      </div>
+    </div>
+
+    <!-- ===== バックアップ ===== -->
+    <div class="settings-page" id="page-backup">
+      <button class="back-btn" onclick="backToMenu()" ontouchend="event.preventDefault();backToMenu();">‹ メニューに戻る</button>
+      <div class="page-title">💾 バックアップ</div>
+      <div class="backup-box">
+        <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">【エクスポート】下のテキストをコピーして保存してください</div>
+        <textarea class="backup-textarea" id="backup-export" readonly rows="3"></textarea>
+        <button class="blue-btn" id="export-btn" onclick="exportSettings()" style="margin-top:6px;width:100%;padding:8px;">📋 エクスポートテキストを生成</button>
+      </div>
+      <div class="backup-box" style="margin-top:10px;">
+        <div style="font-size:0.78rem;color:#aaa;margin-bottom:6px;">【インポート】保存したテキストを貼り付けて復元</div>
+        <textarea class="backup-textarea" id="backup-import" placeholder="バックアップテキストを貼り付けてください" rows="3"></textarea>
+        <button class="blue-btn" id="import-btn" onclick="importSettings()" style="margin-top:6px;width:100%;padding:8px;">📥 インポートして復元</button>
+      </div>
+      <div class="settings-hint" style="margin-top:10px;">
+        ※ バックアップされる内容：APIキー・GAS URL・管理者メール・デフォルト時刻・工事情報<br>
+        ※ 機種変更や新しい端末への移行時に便利です。
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 地図モーダル -->
+<div class="map-modal" id="map-modal">
+  <div class="map-modal-inner">
+    <div class="map-modal-header">
+      🗺️ 現場の場所を地図上でクリックしてください
+      <button class="map-close-btn" id="map-close-btn" onclick="closeMapModal()">✕</button>
+    </div>
+    <div class="map-hint">
+      📍 地図をクリックするとピンが立ちます
+      <span class="coord-preview" id="coord-preview">未選択</span>
+    </div>
+    <div id="map-container"></div>
+    <div class="map-modal-footer">
+      <button class="map-cancel-btn" id="map-cancel-btn" onclick="closeMapModal()">キャンセル</button>
+      <button class="map-confirm-btn" id="map-confirm-btn" onclick="confirmLocation()" disabled>📍 この場所に決定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 日時指定送信モーダル -->
+<div class="schedule-modal" id="schedule-modal">
+  <div class="schedule-modal-inner">
+    <div class="schedule-modal-title">⏰ 日時指定送信の登録</div>
+    <div id="schedule-project-info" style="font-size:0.82rem;color:#aaa;margin-bottom:14px;padding:8px;background:#111;border-radius:4px;"></div>
+    <div class="schedule-field">
+      <label class="schedule-field-label">送信日</label>
+      <input type="date" class="inp" id="sched-date" style="width:100%;">
+    </div>
+    <div class="schedule-field">
+      <label class="schedule-field-label">送信時刻</label>
+      <div class="time-row">
+        <select class="time-select" id="sched-hour" style="flex:1;"></select>
+        <span style="color:#aaa;">時</span>
+        <select class="time-select" id="sched-min" style="flex:1;"></select>
+        <span style="color:#aaa;">分</span>
+      </div>
+    </div>
+    <div id="schedule-warn" style="font-size:0.78rem;color:#f66;margin-top:-6px;margin-bottom:8px;display:none;"></div>
+    <div class="schedule-modal-btns">
+      <button class="map-cancel-btn" id="schedule-cancel-btn" onclick="closeScheduleModal()" style="flex:1;">キャンセル</button>
+      <button class="save-btn" id="schedule-confirm-btn" onclick="confirmSchedule()" style="flex:1;padding:12px;">✅ 登録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 操作バー -->
+<div class="op-bar">
+  <div class="op-group">
+    <span class="op-label">🏗️ 工事名</span>
+    <select class="op-select" id="project-select" onchange="onProjectChange()">
+      <option value="">工事を選択してください</option>
+    </select>
+  </div>
+  <div class="op-group">
+    <span class="op-label">📅 作業日</span>
+    <input type="date" class="op-date" id="date-picker" onchange="onDateChange()">
+  </div>
+  <div id="weather-box" onclick="fetchWeather()" ontouchend="event.preventDefault();fetchWeather();" style="cursor:pointer;">
+    <span id="w-icon">—</span>
+    <div>
+      <span id="w-label">天気予報</span>
+      <span id="w-text">工事と作業日を選択してください</span>
+      <span id="w-note"></span>
+    </div>
+  </div>
+</div>
+
+<!-- メインコンテンツ -->
+<div class="main-grid">
+  <div class="input-panel">
+    <div class="field-label">▶ 作業内容</div>
+    <textarea id="inp-work" placeholder="例：2階スラブのコンクリート打設&#10;型枠解体作業&#10;鉄筋組立など"></textarea>
+
+    <div class="field-label">▶ 使用重機・機械・工具</div>
+    <textarea id="inp-equip" placeholder="例：ポンプ車、バイブレーター&#10;クレーン、コンプレッサーなど"></textarea>
+
+    <div class="field-label">▶ 現場の特記事項</div>
+    <textarea id="inp-notes" placeholder="例：高所作業あり（5m以上）&#10;狭い場所での作業&#10;第三者が近くにいる など"></textarea>
+
+    <button class="generate-btn" id="gen-btn" onclick="generateKY()">⚡ KYシートを生成する</button>
+
+    <div class="action-row">
+      <button class="act-btn btn-send" id="btn-send" onclick="sendNow()" disabled>📤 今すぐ送信</button>
+      <button class="act-btn btn-schedule" id="btn-schedule" onclick="openScheduleModal()" disabled>⏰ 日時指定送信</button>
+    </div>
+  </div>
+
+  <div class="output-panel">
+    <div class="out-placeholder" id="out-placeholder">
+      <div class="ph-icon">📋</div>
+      <div>工事名・作業日を選択して<br>作業内容を入力し<br>「KYシートを生成する」を押してください</div>
+    </div>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div style="font-size:0.85rem;">AIがKYシートを作成中...</div>
+    </div>
+    <div class="ky-out" id="ky-out">
+      <div class="out-meta" id="out-meta"></div>
+      <div class="section-hd">⚠️ 危険ポイント＆対策</div>
+      <div class="section-bd" id="danger-list"></div>
+      <div class="section-hd">🎯 今日の安全目標 ＆ 朝礼コメント</div>
+      <div class="section-bd">
+        <div class="goal-box">
+          <div class="goal-lbl">★ 今日の安全目標</div>
+          <div class="goal-txt" id="out-goal"></div>
+        </div>
+        <div class="comment-box">
+          <div class="comment-lbl">📢 朝礼でのひと言</div>
+          <div id="out-comment"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var APP_VERSION = '1.1';
+var weatherInfo = {};
+var kyData = null;
+var mapInstance = null;
+var mapMarker = null;
+var selectedLat = null;
+var selectedLon = null;
+var selectedPlaceName = null;
+var currentMapRow = null;
+
+// ===== 初期化 =====
+function init() {
+  setTodayDate();
+  renderProjectSelect();
+  var last = localStorage.getItem('ky_last_project_v6');
+  if (last) { document.getElementById('project-select').value = last; onProjectChange(); }
+  cleanOldReservations();
+  // 起動時にクラウドから自動同期
+  autoSyncOnStartup();
+}
+
+// ===== クラウド同期（起動時自動読込）=====
+async function autoSyncOnStartup() {
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  if (!gasUrl) return; // GAS URL未設定なら何もしない
+  try {
+    var res = await fetch(gasUrl, {
+      method: 'POST', redirect: 'follow',
+      body: JSON.stringify({ sendMode: 'getSettings' })
+    });
+    if (!res.ok) return;
+    var data = await res.json();
+    if (data.status !== 'ok' || !data.settings) return;
+    var s = data.settings;
+    var changed = false;
+    // ローカルのタイムスタンプとクラウドのタイムスタンプを比較
+    var localTs = parseInt(localStorage.getItem('ky_settings_ts') || '0');
+    var cloudTs = parseInt(s.updatedAt || '0');
+    // クラウドが新しい場合のみ反映（案A：後勝ち）
+    if (cloudTs > localTs) {
+      if (s.projects) { saveProjectsToStorage(s.projects); changed = true; }
+      if (s.adminEmail !== undefined) localStorage.setItem('ky_admin_email', s.adminEmail);
+      if (s.defaultHour) localStorage.setItem('ky_default_hour', s.defaultHour);
+      if (s.defaultMin)  localStorage.setItem('ky_default_min', s.defaultMin);
+      localStorage.setItem('ky_settings_ts', String(cloudTs));
+      if (changed) {
+        renderProjectSelect();
+        var cur = document.getElementById('project-select');
+        if (cur && cur.value === '' ) {
+          var lastP = localStorage.getItem('ky_last_project_v6');
+          if (lastP) { cur.value = lastP; }
+        }
+        showToast('☁️ クラウドから最新設定を読み込みました');
+      }
+    }
+  } catch(e) { /* オフライン時は無視 */ }
+}
+
+// ===== クラウドへ設定を保存 =====
+async function pushSettingsToCloud() {
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  if (!gasUrl) return;
+  var ts = Date.now();
+  localStorage.setItem('ky_settings_ts', String(ts));
+  var settings = {
+    projects: getProjects(),
+    adminEmail: localStorage.getItem('ky_admin_email') || '',
+    defaultHour: localStorage.getItem('ky_default_hour') || '7',
+    defaultMin: localStorage.getItem('ky_default_min') || '00',
+    updatedAt: ts
+  };
+  try {
+    await fetch(gasUrl, {
+      method: 'POST', redirect: 'follow',
+      body: JSON.stringify({ sendMode: 'saveSettings', settings: settings })
+    });
+  } catch(e) { /* オフライン時は無視 */ }
+}
+
+// ===== 手動でクラウドから読込 =====
+async function manualSyncFromCloud() {
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  if (!gasUrl) { alert('先にGAS URLを設定・保存してください'); return; }
+  showToast('☁️ クラウドから読込中...');
+  try {
+    var res = await fetch(gasUrl, {
+      method: 'POST', redirect: 'follow',
+      body: JSON.stringify({ sendMode: 'getSettings' })
+    });
+    var data = await res.json();
+    if (data.status === 'empty' || !data.settings) {
+      alert('クラウドに保存された設定がまだありません。\nPCなどで工事を登録・保存すると同期されます。');
+      return;
+    }
+    if (data.status !== 'ok') {
+      alert('読込に失敗しました：' + (data.message || '不明なエラー'));
+      return;
+    }
+    var s = data.settings;
+    if (s.projects) saveProjectsToStorage(s.projects);
+    if (s.adminEmail !== undefined) localStorage.setItem('ky_admin_email', s.adminEmail);
+    if (s.defaultHour) localStorage.setItem('ky_default_hour', s.defaultHour);
+    if (s.defaultMin)  localStorage.setItem('ky_default_min', s.defaultMin);
+    localStorage.setItem('ky_settings_ts', String(s.updatedAt || Date.now()));
+    renderProjectSelect();
+    if (document.getElementById('page-projects')) renderProjectList();
+    updateMenuStatuses();
+    showToast('✅ クラウドから設定を読み込みました');
+  } catch(e) {
+    alert('読込に失敗しました：' + e.message);
+  }
+}
+
+// ===== ストレージ =====
+function getProjects() {
+  try { var s = localStorage.getItem('ky_projects_v6'); return s ? JSON.parse(s) : []; } catch { return []; }
+}
+function saveProjectsToStorage(data) { localStorage.setItem('ky_projects_v6', JSON.stringify(data)); }
+
+function getReservations() {
+  try { var s = localStorage.getItem('ky_reservations_v1'); return s ? JSON.parse(s) : []; } catch { return []; }
+}
+function saveReservations(data) { localStorage.setItem('ky_reservations_v1', JSON.stringify(data)); }
+
+
+
+
+function setTodayDate() {
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = String(now.getMonth() + 1).padStart(2, '0');
+  var d = String(now.getDate()).padStart(2, '0');
+  document.getElementById('date-picker').value = y + '-' + m + '-' + d;
+}
+
+function initHourMinSelect(hourId, minId) {
+  var hourSel = document.getElementById(hourId);
+  var minSel = document.getElementById(minId);
+  if (!hourSel || !minSel) return;
+  hourSel.innerHTML = '';
+  for (var h = 0; h <= 23; h++) {
+    var o = document.createElement('option');
+    o.value = h; o.textContent = String(h).padStart(2, '0'); hourSel.appendChild(o);
+  }
+  minSel.innerHTML = '';
+  ['00','10','20','30','40','50'].forEach(function(m) {
+    var o = document.createElement('option'); o.value = m; o.textContent = m; minSel.appendChild(o);
+  });
+}
+
+// ===== 設定パネル =====
+function toggleSettings() {
+  var panel = document.getElementById('settings-panel');
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+  } else {
+    showSettingsPage('page-menu');
+    panel.classList.add('open');
+    loadSettingsPanel();
+  }
+}
+
+function showSettingsPage(pageId) {
+  var pages = document.querySelectorAll('.settings-page');
+  pages.forEach(function(p){ p.classList.remove('active'); });
+  var target = document.getElementById(pageId);
+  if (target) target.classList.add('active');
+  // ページを開くときに設定を読み込む
+  if (pageId === 'page-projects') renderProjectList();
+  if (pageId === 'page-reservations') renderReservationList();
+  if (pageId === 'page-time') {
+    initHourMinSelect('default-hour', 'default-min');
+    var savedHour = localStorage.getItem('ky_default_hour') || '7';
+    var savedMin = localStorage.getItem('ky_default_min') || '00';
+    document.getElementById('default-hour').value = savedHour;
+    document.getElementById('default-min').value = savedMin;
+    updateDefaultTimeStatus();
+  }
+  if (pageId === 'page-api') {
+    var key = localStorage.getItem('ky_gemini_api_key') || '';
+    if (key) document.getElementById('api-key-input').value = key;
+    var groqKey = localStorage.getItem('ky_groq_api_key') || '';
+    if (groqKey) document.getElementById('groq-key-input').value = groqKey;
+    var engine = localStorage.getItem('ky_ai_engine') || 'gemini';
+    document.getElementById('ai-engine-select').value = engine;
+    var gasUrl = localStorage.getItem('ky_gas_url') || '';
+    if (gasUrl) document.getElementById('gas-url-input').value = gasUrl;
+    var adminEmail = localStorage.getItem('ky_admin_email') || '';
+    if (adminEmail) document.getElementById('admin-email-input').value = adminEmail;
+    updateApiKeyStatus(); updateGasUrlStatus(); updateAdminEmailStatus();
+  }
+  // 設定パネルのスクロールを先頭に戻す
+  var panel = document.getElementById('settings-panel');
+  if (panel) panel.scrollTop = 0;
+}
+
+function backToMenu() {
+  updateMenuStatuses();
+  showSettingsPage('page-menu');
+}
+
+function updateMenuStatuses() {
+  // APIキー状態
+  var apiKey = localStorage.getItem('ky_gemini_api_key') || '';
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  var adminEmail = localStorage.getItem('ky_admin_email') || '';
+  var apiEl = document.getElementById('menu-status-api');
+  if (apiEl) {
+    if (apiKey && gasUrl && adminEmail) {
+      apiEl.textContent = '✅ 設定済み';
+      apiEl.className = 'menu-status ok';
+    } else {
+      apiEl.textContent = '⚠️ 未設定項目あり';
+      apiEl.className = 'menu-status warn';
+    }
+  }
+  // 工事登録状態
+  var projects = getProjects();
+  var projEl = document.getElementById('menu-status-projects');
+  if (projEl) {
+    if (projects.length > 0) {
+      projEl.textContent = '✅ ' + projects.length + '件登録済み';
+      projEl.className = 'menu-status ok';
+    } else {
+      projEl.textContent = '⚠️ 未登録';
+      projEl.className = 'menu-status warn';
+    }
+  }
+  // 送信時刻状態
+  var hour = localStorage.getItem('ky_default_hour');
+  var min = localStorage.getItem('ky_default_min') || '00';
+  var timeEl = document.getElementById('menu-status-time');
+  if (timeEl) {
+    if (hour) {
+      timeEl.textContent = '✅ ' + String(hour).padStart(2,'0') + ':' + String(min).padStart(2,'0');
+      timeEl.className = 'menu-status ok';
+    } else {
+      timeEl.textContent = '⚠️ 未設定';
+      timeEl.className = 'menu-status warn';
+    }
+  }
+  // 予約一覧状態
+  var reservations = getReservations().filter(function(r){ return r.status === 'pending'; });
+  var resEl = document.getElementById('menu-status-reservations');
+  if (resEl) {
+    if (reservations.length > 0) {
+      resEl.textContent = '📅 ' + reservations.length + '件の予約あり';
+      resEl.className = 'menu-status ok';
+    } else {
+      resEl.textContent = '予約なし';
+      resEl.className = 'menu-status warn';
+    }
+  }
+}
+
+function loadSettingsPanel() {
+  // メニュー画面の状態を更新
+  updateMenuStatuses();
+}
+
+// ===== APIキー保存 =====
+function saveApiKey() {
+  var key = document.getElementById('api-key-input').value.trim();
+  var groqKey = document.getElementById('groq-key-input').value.trim();
+  if (key) localStorage.setItem('ky_gemini_api_key', key);
+  if (groqKey) localStorage.setItem('ky_groq_api_key', groqKey);
+  if (!key && !groqKey) { alert('APIキーを入力してください'); return; }
+  updateApiKeyStatus();
+  showToast('✅ APIキーを保存しました');
+}
+
+function saveEngine() {
+  var engine = document.getElementById('ai-engine-select').value;
+  localStorage.setItem('ky_ai_engine', engine);
+  showToast('✅ AIエンジン：' + (engine === 'groq' ? 'Groq' : 'Gemini') + ' に設定しました');
+}
+
+async function testGasConnection() {
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  var el = document.getElementById('gas-test-result');
+  el.style.display = 'block';
+  el.style.background = '#1a2a3a'; el.style.border = '1px solid #1a73e8'; el.style.color = '#8ab4f8';
+  el.textContent = '🔄 接続テスト中...';
+  if (!gasUrl) {
+    el.style.background = '#3a1a1a'; el.style.border = '1px solid #c00'; el.style.color = '#f88';
+    el.textContent = '❌ GAS URLが設定されていません。\n「データ送信設定」で保存してください。';
+    return;
+  }
+  if (gasUrl.indexOf('/exec') === -1) {
+    el.style.background = '#3a1a1a'; el.style.border = '1px solid #c00'; el.style.color = '#f88';
+    el.textContent = '❌ URLの末尾が「/exec」ではありません。\nデプロイ画面で正しいURLをコピーしてください。';
+    return;
+  }
+  try {
+    var res = await fetch(gasUrl, { method: 'GET', redirect: 'follow' });
+    var text = await res.text();
+    var data;
+    try { data = JSON.parse(text); } catch(e) {
+      el.style.background = '#3a1a1a'; el.style.border = '1px solid #c00'; el.style.color = '#f88';
+      el.textContent = '❌ GASの応答が不正です。\nデプロイ設定「アクセスできるユーザー」を\n「全員」にしてください。';
+      return;
+    }
+    el.style.background = '#1b3a1b'; el.style.border = '1px solid #2a6'; el.style.color = '#4caf50';
+    el.textContent = '✅ GAS接続成功！（v' + (data.version || '?') + '）\n正常に動作しています。';
+  } catch(err) {
+    el.style.background = '#3a1a1a'; el.style.border = '1px solid #c00'; el.style.color = '#f88';
+    el.textContent = '❌ 接続失敗：' + err.message + '\n\n対処：\n① デプロイ設定「アクセスできるユーザー：全員」を確認\n② コード修正後は「新バージョン」で再デプロイ\n③ 広告ブロッカー等をオフにして再試行';
+  }
+}
+
+function updateApiKeyStatus() {
+  var key = localStorage.getItem('ky_gemini_api_key') || '';
+  var el = document.getElementById('api-key-status');
+  if (el) {
+    el.textContent = key ? '✅ Gemini APIキー設定済み' : '⚠️ Gemini APIキー未設定';
+    el.style.color = key ? '#2a6' : 'var(--muted)';
+  }
+  var groqKey = localStorage.getItem('ky_groq_api_key') || '';
+  var gel = document.getElementById('groq-key-status');
+  if (gel) {
+    gel.textContent = groqKey ? '✅ Groq APIキー設定済み' : '⚠️ Groqキー未設定（任意）';
+    gel.style.color = groqKey ? '#2a6' : 'var(--muted)';
+  }
+}
+
+// ===== GAS URL保存 =====
+function saveGasUrl() {
+  var url = document.getElementById('gas-url-input').value.trim();
+  if (!url) { alert('URLを入力してください'); return; }
+  localStorage.setItem('ky_gas_url', url);
+  updateGasUrlStatus();
+  showToast('✅ GAS URLを保存しました');
+}
+
+function updateGasUrlStatus() {
+  var url = localStorage.getItem('ky_gas_url') || '';
+  var el = document.getElementById('gas-url-status');
+  if (!el) return;
+  el.textContent = url ? '✅ GAS URL設定済み' : '⚠️ GAS URL未設定';
+  el.style.color = url ? '#2a6' : 'var(--muted)';
+}
+
+// ===== 管理者メール保存 =====
+function saveAdminEmail() {
+  var email = document.getElementById('admin-email-input').value.trim();
+  if (!email) { alert('管理者メールアドレスを入力してください'); return; }
+  localStorage.setItem('ky_admin_email', email);
+  updateAdminEmailStatus();
+  pushSettingsToCloud();
+  showToast('✅ 管理者メールを保存しました（クラウド同期）');
+}
+
+function updateAdminEmailStatus() {
+  var email = localStorage.getItem('ky_admin_email') || '';
+  var el = document.getElementById('admin-email-status');
+  if (!el) return;
+  el.textContent = email ? '✅ 管理者メール設定済み' : '⚠️ 管理者メール未設定';
+  el.style.color = email ? '#2a6' : 'var(--muted)';
+}
+
+// ===== デフォルト送信時刻 =====
+function saveDefaultTime() {
+  var hour = document.getElementById('default-hour').value;
+  var min = document.getElementById('default-min').value;
+  localStorage.setItem('ky_default_hour', hour);
+  localStorage.setItem('ky_default_min', min);
+  updateDefaultTimeStatus();
+  pushSettingsToCloud();
+  showToast('✅ デフォルト送信時刻を保存しました（クラウド同期）');
+}
+
+function updateDefaultTimeStatus() {
+  var hour = localStorage.getItem('ky_default_hour');
+  var min = localStorage.getItem('ky_default_min') || '00';
+  var el = document.getElementById('default-time-status');
+  if (!el) return;
+  if (hour) {
+    el.textContent = '✅ ' + String(hour).padStart(2,'0') + ':' + String(min).padStart(2,'0');
+    el.style.color = '#5b9ef7';
+  } else {
+    el.textContent = '⚠️ 未設定（デフォルト：07:00）';
+    el.style.color = 'var(--muted)';
+  }
+}
+
+// ===== テスト送信 =====
+async function testSend() {
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  var adminEmail = localStorage.getItem('ky_admin_email') || '';
+  if (!gasUrl) { alert('GAS URLが設定されていません'); return; }
+  if (!adminEmail) { alert('管理者メールが設定されていません'); return; }
+  showToast('📧 テストメールを送信中...');
+  try {
+    await fetch(gasUrl, {
+      method: 'POST', mode: 'no-cors',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({
+        sendMode: 'test', adminEmails: adminEmail.split('\n').map(function(e){return e.trim();}).filter(Boolean),
+        appVersion: APP_VERSION
+      })
+    });
+    showToast('✅ テストメールを送信しました！管理者メールを確認してください。');
+  } catch(err) {
+    alert('送信に失敗しました: ' + err.message);
+  }
+}
+
+// ===== 工事登録 =====
+function createProjectRow(name, place, lat, lon, emails) {
+  name = name || ''; place = place || ''; emails = emails || '';
+  var div = document.createElement('div');
+  div.className = 'project-row';
+  var hasCoord = lat && lon;
+  div.innerHTML =
+    '<div class="project-row-line">' +
+    '<span class="row-label">工事名</span>' +
+    '<input class="inp inp-name" type="text" placeholder="工事名" value="' + esc(name) + '" style="flex:1;">' +
+    '<button class="del-btn" onclick="this.closest(\'.project-row\').remove()">削除</button>' +
+    '</div>' +
+    '<div class="project-row-line">' +
+    '<span class="row-label">工事場所</span>' +
+    '<input class="inp inp-place" type="text" placeholder="地図で選択すると自動入力" value="' + esc(place) + '" style="flex:1;">' +
+    '</div>' +
+    '<div class="project-row-line" style="align-items:flex-start;">' +
+    '<span class="row-label" style="padding-top:8px;">作業員メール</span>' +
+    '<textarea class="inp inp-emails" placeholder="1行に1つのメールアドレス&#10;例：tanaka@gmail.com" rows="3" style="flex:1;resize:vertical;font-size:0.78rem;">' + esc(emails) + '</textarea>' +
+    '</div>' +
+    '<div class="project-row-line">' +
+    '<span class="row-label">座標</span>' +
+    '<button class="map-pick-btn proj-map-btn">🗺️ 地図で選択</button>' +
+    '<input class="inp inp-coord" type="text" readonly value="' + (hasCoord ? '緯度:' + parseFloat(lat).toFixed(4) + ' 経度:' + parseFloat(lon).toFixed(4) : '') + '" placeholder="地図で選択" style="flex:1;">' +
+    '<span class="coord-status ' + (hasCoord ? '' : 'empty') + '">' + (hasCoord ? '✅ 登録済み' : '⚠️ 未設定') + '</span>' +
+    '</div>';
+  if (lat) div.dataset.lat = lat;
+  if (lon) div.dataset.lon = lon;
+  var mapBtn = div.querySelector('.proj-map-btn');
+  mapBtn.addEventListener('touchend', function(e) { e.preventDefault(); openMapModal(div); }, {passive:false});
+  mapBtn.addEventListener('click', function() { openMapModal(div); });
+  return div;
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function renderProjectList() {
+  var list = document.getElementById('project-list');
+  list.innerHTML = '';
+  var projects = getProjects();
+  if (projects.length === 0) {
+    list.innerHTML = '<div class="project-empty-msg" style="color:var(--muted);font-size:0.82rem;padding:8px 4px;">まだ工事が登録されていません。</div>';
+    return;
+  }
+  projects.forEach(function(p) {
+    list.appendChild(createProjectRow(p.name, p.place, p.lat, p.lon, p.emails || ''));
+  });
+}
+
+function addProjectRow() {
+  var list = document.getElementById('project-list');
+  // 「登録なし」メッセージがあれば削除
+  var emptyMsg = list.querySelector('.project-empty-msg');
+  if (emptyMsg) list.innerHTML = '';
+  var newRow = createProjectRow();
+  list.appendChild(newRow);
+  // スクロールして新しい行を表示
+  setTimeout(function(){ newRow.scrollIntoView({behavior:'smooth', block:'nearest'}); }, 100);
+}
+
+function saveProjects() {
+  var rows = document.querySelectorAll('.project-row');
+  var projects = [];
+  rows.forEach(function(row) {
+    var nameEl = row.querySelector('.inp-name');
+    var placeEl = row.querySelector('.inp-place');
+    var emailsEl = row.querySelector('.inp-emails');
+    if (!nameEl || !placeEl) return;
+    var name = nameEl.value.trim();
+    var place = placeEl.value.trim();
+    if (!name) return;
+    var emails = emailsEl ? emailsEl.value.trim() : '';
+    var lat = parseFloat(row.dataset.lat || '');
+    var lon = parseFloat(row.dataset.lon || '');
+    projects.push({ name: name, place: place, emails: emails, lat: isNaN(lat) ? null : lat, lon: isNaN(lon) ? null : lon });
+  });
+  if (projects.length === 0) { alert('少なくとも1つの工事を登録してください'); return; }
+  saveProjectsToStorage(projects);
+  renderProjectSelect();
+  pushSettingsToCloud();
+  showToast('✅ 工事設定を保存しました（クラウド同期）');
+}
+
+function renderProjectSelect() {
+  var sel = document.getElementById('project-select');
+  var current = sel.value;
+  sel.innerHTML = '<option value="">工事を選択してください</option>';
+  getProjects().forEach(function(p, i) {
+    var opt = document.createElement('option');
+    opt.value = i; opt.textContent = p.name; sel.appendChild(opt);
+  });
+  if (current !== '') sel.value = current;
+}
+
+// ===== 地図 =====
+function openMapModal(rowEl) {
+  if (typeof L === 'undefined') { alert('地図ライブラリ読込中です。少し待ってから再度お試しください。'); return; }
+  currentMapRow = rowEl;
+  selectedLat = null; selectedLon = null; selectedPlaceName = null;
+  document.getElementById('coord-preview').textContent = '未選択';
+  document.getElementById('map-confirm-btn').disabled = true;
+  document.getElementById('map-modal').classList.add('open');
+  setTimeout(function() {
+    if (!mapInstance) {
+      mapInstance = L.map('map-container').setView([35.68, 136.0], 6);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors', maxZoom: 18
+      }).addTo(mapInstance);
+    } else { mapInstance.invalidateSize(); }
+    mapInstance.off('click');
+    mapInstance.on('click', function(e) { handleMapClick(e.latlng.lat, e.latlng.lng); });
+    var existLat = parseFloat(currentMapRow.dataset.lat);
+    var existLon = parseFloat(currentMapRow.dataset.lon);
+    var existPlace = currentMapRow.querySelector('.inp-place') ? currentMapRow.querySelector('.inp-place').value.trim() : '';
+    if (!isNaN(existLat) && !isNaN(existLon)) {
+      mapInstance.setView([existLat, existLon], 14);
+      if (mapMarker) mapMarker.remove();
+      mapMarker = L.marker([existLat, existLon]).addTo(mapInstance);
+      mapMarker.bindPopup('📍 ' + (existPlace || '登録済み')).openPopup();
+      selectedLat = existLat; selectedLon = existLon; selectedPlaceName = existPlace;
+      document.getElementById('coord-preview').textContent = (existPlace ? '📍 ' + existPlace + ' ' : '') + '緯度:' + existLat + ' 経度:' + existLon;
+      document.getElementById('map-confirm-btn').disabled = false;
+    } else {
+      mapInstance.setView([35.68, 136.0], 6);
+      if (mapMarker) { mapMarker.remove(); mapMarker = null; }
+    }
+  }, 100);
+}
+
+async function handleMapClick(lat, lng) {
+  selectedLat = Math.round(lat * 100000) / 100000;
+  selectedLon = Math.round(lng * 100000) / 100000;
+  selectedPlaceName = null;
+  if (mapMarker) mapMarker.remove();
+  mapMarker = L.marker([selectedLat, selectedLon]).addTo(mapInstance);
+  mapMarker.bindPopup('📍 地名取得中...').openPopup();
+  document.getElementById('map-confirm-btn').disabled = true;
+  document.getElementById('coord-preview').textContent = '取得中... 緯度:' + selectedLat + ' 経度:' + selectedLon;
+  try {
+    var res = await fetch(
+      'https://nominatim.openstreetmap.org/reverse?lat=' + selectedLat + '&lon=' + selectedLon + '&format=json&accept-language=ja',
+      { headers: {'User-Agent': 'KYSheetApp/1.0'} }
+    );
+    var data = await res.json();
+    if (data && data.address) {
+      var a = data.address;
+      var prefecture = a.state || a.province || a.region || '';
+      var city = a.city || a.town || a.village || a.county || a.municipality || '';
+      var district = a.city_district || a.suburb || a.neighbourhood || a.quarter || '';
+      selectedPlaceName = [prefecture, city, district].filter(Boolean).join('');
+      if (!selectedPlaceName && data.display_name) {
+        var parts = data.display_name.split(',').map(function(s){return s.trim();}).reverse();
+        var filtered = parts.filter(function(p){return p!=='日本'&&p!=='Japan';}).slice(0,3);
+        selectedPlaceName = filtered.reverse().join('');
+      }
+    }
+  } catch(err) { selectedPlaceName = ''; }
+  var preview = selectedPlaceName ? '📍 ' + selectedPlaceName + ' 緯度:' + selectedLat : '緯度:' + selectedLat + ' 経度:' + selectedLon;
+  document.getElementById('coord-preview').textContent = preview;
+  mapMarker.getPopup().setContent('📍 ' + (selectedPlaceName || '場所') + '<br>緯度:' + selectedLat + '<br>経度:' + selectedLon).update();
+  document.getElementById('map-confirm-btn').disabled = false;
+}
+
+function closeMapModal() { document.getElementById('map-modal').classList.remove('open'); }
+
+function confirmLocation() {
+  if (!currentMapRow || selectedLat === null) return;
+  currentMapRow.dataset.lat = selectedLat;
+  currentMapRow.dataset.lon = selectedLon;
+  var coordEl = currentMapRow.querySelector('.inp-coord');
+  if (coordEl) coordEl.value = '緯度:' + selectedLat + ' 経度:' + selectedLon;
+  var statusEl = currentMapRow.querySelector('.coord-status');
+  if (statusEl) { statusEl.textContent = '✅ 座標登録済み'; statusEl.className = 'coord-status'; }
+  var placeEl = currentMapRow.querySelector('.inp-place');
+  if (placeEl) placeEl.value = selectedPlaceName || ('緯度' + selectedLat + ' 経度' + selectedLon);
+  closeMapModal();
+  showToast('📍 場所を設定しました。「保存する」を押して確定してください。');
+}
+
+// ===== 天気 =====
+function onProjectChange() {
+  var idx = document.getElementById('project-select').value;
+  if (idx === '') return;
+  localStorage.setItem('ky_last_project_v6', idx);
+  fetchWeather();
+}
+function onDateChange() {
+  var idx = document.getElementById('project-select').value;
+  if (idx === '') return;
+  fetchWeather();
+}
+
+async function fetchWeather() {
+  var idx = document.getElementById('project-select').value;
+  var dateVal = document.getElementById('date-picker').value;
+  if (idx === '' || !dateVal) return;
+  var project = getProjects()[parseInt(idx)];
+  if (!project) return;
+  if (!project.lat || !project.lon) {
+    document.getElementById('w-icon').textContent = '⚠️';
+    document.getElementById('w-text').textContent = '地図で現場の場所を設定してください';
+    document.getElementById('w-note').textContent = '（工事設定 → 地図で選択）';
+    weatherInfo = {desc:'未設定', tMax:'--', tMin:'--'};
+    return;
+  }
+  document.getElementById('w-icon').textContent = '🔄';
+  document.getElementById('w-text').textContent = '取得中...';
+  document.getElementById('w-note').textContent = '';
+  try {
+    // 日付チェック：予報は16日先まで・過去は90日前まで
+    var today = new Date(); today.setHours(0,0,0,0);
+    var target = new Date(dateVal + 'T00:00:00');
+    var diffDays = Math.round((target - today) / 86400000);
+    if (diffDays > 16) throw new Error('予報は16日先までしか取得できません');
+    if (diffDays < -90) throw new Error('90日以上前の天気は取得できません');
+
+    // 新パラメータ名 weather_code を使用（旧 weathercode は廃止移行中）
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + project.lat + '&longitude=' + project.lon +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo&start_date=' + dateVal + '&end_date=' + dateVal;
+    var res = await fetch(url);
+    if (!res.ok) throw new Error('天気サーバーエラー（HTTP ' + res.status + '）');
+    var data = await res.json();
+    if (data.error) throw new Error(data.reason || '天気APIエラー');
+    if (!data.daily || !data.daily.time || data.daily.time.length === 0) throw new Error('予報データなし');
+
+    // 新旧両方のパラメータ名に対応
+    var codes = data.daily.weather_code || data.daily.weathercode;
+    if (!codes) throw new Error('天気コードが取得できません');
+    var code = codes[0];
+    var tMax = Math.round(data.daily.temperature_2m_max[0]);
+    var tMin = Math.round(data.daily.temperature_2m_min[0]);
+    var wm = {0:['☀️','快晴'],1:['🌤️','晴れ'],2:['⛅','曇りがち'],3:['☁️','曇り'],45:['🌫️','霧'],48:['🌫️','霧氷'],51:['🌦️','小雨'],53:['🌧️','雨'],55:['🌧️','強雨'],56:['🌧️','着氷性の雨'],57:['🌧️','着氷性の強雨'],61:['🌧️','雨'],63:['🌧️','雨'],65:['🌧️','大雨'],66:['🌧️','着氷性の雨'],67:['🌧️','着氷性の大雨'],71:['🌨️','小雪'],73:['❄️','雪'],75:['❄️','大雪'],77:['❄️','霧雪'],80:['🌦️','にわか雨'],81:['🌧️','にわか雨'],82:['⛈️','激しい雨'],85:['🌨️','にわか雪'],86:['❄️','激しいにわか雪'],95:['⛈️','雷雨'],96:['⛈️','雹を伴う雷雨'],99:['⛈️','激しい雷雨']};
+    var wd = wm[code] || ['🌡️','不明'];
+    document.getElementById('w-icon').textContent = wd[0];
+    document.getElementById('w-text').textContent = wd[1] + ' 最高' + tMax + '°C 最低' + tMin + '°C';
+    document.getElementById('w-note').textContent = '（' + project.place + '）';
+    weatherInfo = {icon:wd[0], desc:wd[1], tMax:tMax, tMin:tMin, place:project.place};
+  } catch(e) {
+    document.getElementById('w-icon').textContent = '⚠️';
+    document.getElementById('w-text').textContent = '取得失敗：' + e.message;
+    document.getElementById('w-note').textContent = 'タップで再取得できます';
+    weatherInfo = {desc:'不明', tMax:'--', tMin:'--'};
+  }
+}
+
+// ===== AI呼び出し（Gemini / Groq 両対応・429リトライ付き）=====
+async function callAI(prompt) {
+  var engine = localStorage.getItem('ky_ai_engine') || 'gemini';
+  var lastErr = null;
+  for (var r = 1; r <= 3; r++) {
+    try {
+      if (engine === 'groq') {
+        var gk = localStorage.getItem('ky_groq_api_key') || '';
+        var res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + gk },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7, max_tokens: 1000
+          })
+        });
+        if (res.status === 429) throw new Error('429');
+        if (!res.ok) throw new Error('Groq HTTP ' + res.status);
+        var d = await res.json();
+        if (d.error) throw new Error('Groq：' + d.error.message);
+        return d.choices[0].message.content;
+      } else {
+        var key = localStorage.getItem('ky_gemini_api_key') || '';
+        var res = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + key,
+          { method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.7,maxOutputTokens:1000}}) }
+        );
+        if (res.status === 429) throw new Error('429');
+        var d = await res.json();
+        if (d.error) {
+          if ((d.error.code===429)||(d.error.message||'').indexOf('RESOURCE_EXHAUSTED')!==-1) throw new Error('429');
+          throw new Error('Gemini：' + d.error.message);
+        }
+        return d.candidates[0].content.parts[0].text;
+      }
+    } catch(e) {
+      lastErr = e;
+      if (e.message === '429' && r < 3) {
+        showToast('⚠️ API制限。' + (r*20) + '秒待機して再試行します...');
+        await new Promise(function(rs){ setTimeout(rs, r*20000); });
+      } else if (r < 3) {
+        await new Promise(function(rs){ setTimeout(rs, 5000); });
+      }
+    }
+  }
+  if (lastErr && lastErr.message === '429') {
+    throw new Error('API制限（429）に達しました。\n「⚙️ 工事設定」→「APIキー・GAS設定」で\nAIエンジンをGroqに切り替えるか、しばらく待ってから再試行してください。');
+  }
+  throw lastErr || new Error('AI生成に失敗しました');
+}
+
+// ===== KY生成 =====
+function getDateDisplay(dateVal) {
+  var d = new Date(dateVal + 'T00:00:00');
+  var days = ['日','月','火','水','木','金','土'];
+  return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日（' + days[d.getDay()] + '曜日）';
+}
+
+async function generateKY() {
+  var work = document.getElementById('inp-work').value.trim();
+  if (!work) { alert('作業内容を入力してください'); return; }
+  var idx = document.getElementById('project-select').value;
+  if (idx === '') { alert('工事名を選択してください'); return; }
+  var dateVal = document.getElementById('date-picker').value;
+  if (!dateVal) { alert('作業日を選択してください'); return; }
+  var project = getProjects()[parseInt(idx)];
+  var equip = document.getElementById('inp-equip').value.trim();
+  var notes = document.getElementById('inp-notes').value.trim();
+  var dateDisplay = getDateDisplay(dateVal);
+  var engine = localStorage.getItem('ky_ai_engine') || 'gemini';
+  var aiKey = engine === 'groq' ? (localStorage.getItem('ky_groq_api_key') || '') : (localStorage.getItem('ky_gemini_api_key') || '');
+  if (!aiKey) { alert((engine === 'groq' ? 'Groq' : 'Gemini') + ' APIキーが設定されていません。\n「⚙️ 工事設定」からAPIキーを入力してください。'); return; }
+
+  document.getElementById('out-placeholder').style.display = 'none';
+  document.getElementById('ky-out').classList.remove('show');
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('gen-btn').disabled = true;
+  setActionBtns(true);
+
+  var prompt = 'あなたは建設現場の安全管理の専門家です。以下の情報をもとに、KY活動シートの内容を作成してください。\n\n' +
+    '【日付】' + dateDisplay + '\n【工事名】' + project.name + '\n【工事場所】' + project.place + '\n' +
+    '【天気予報】' + weatherInfo.desc + ' 最高' + weatherInfo.tMax + '°C 最低' + weatherInfo.tMin + '°C\n' +
+    '【作業内容】' + work + '\n【使用重機・機械・工具】' + (equip||'なし') + '\n【現場の特記事項】' + (notes||'なし') + '\n\n' +
+    '必ずJSON形式のみで回答してください（マークダウン記号・説明文は不要）：\n' +
+    '{"dangers":[{"number":1,"title":"危険ポイントのタイトル","detail":"具体的な危険の説明","countermeasure":"具体的な対策"},{"number":2,"title":"","detail":"","countermeasure":""},{"number":3,"title":"","detail":"","countermeasure":""}],"goal":"今日の安全目標（短く力強く）","comment":"朝礼でのひと言コメント（2〜3文）"}';
+
+  try {
+    var text = await callAI(prompt);
+    var jsonStr = text.replace(/```json|```/g,'').trim();
+    var js = jsonStr.indexOf('{');
+    var je = jsonStr.lastIndexOf('}');
+    if (js !== -1 && je !== -1) jsonStr = jsonStr.substring(js, je+1);
+    var parsed = JSON.parse(jsonStr);
+    var emailList = (project.emails||'').split('\n').map(function(e){return e.trim();}).filter(Boolean);
+    var adminEmails = (localStorage.getItem('ky_admin_email')||'').split('\n').map(function(e){return e.trim();}).filter(Boolean);
+    kyData = Object.assign({}, parsed, {
+      date:dateDisplay, dateVal:dateVal, projectName:project.name,
+      place:project.place, weather:weatherInfo.desc+' 最高'+weatherInfo.tMax+'°C 最低'+weatherInfo.tMin+'°C',
+      work:work, equip:equip, notes:notes, emails:emailList, adminEmails:adminEmails, appVersion:APP_VERSION
+    });
+    renderOutput(parsed, project, dateDisplay);
+    setActionBtns(false);
+    showToast('✅ KYシートを生成しました！');
+  } catch(e) {
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('out-placeholder').style.display = 'flex';
+    alert('生成に失敗しました。\n' + e.message);
+  }
+  document.getElementById('gen-btn').disabled = false;
+}
+
+function renderOutput(parsed, project, dateDisplay) {
+  document.getElementById('out-meta').innerHTML =
+    '<div class="out-meta-item"><span class="lbl">工事名</span><span class="val">' + project.name + '</span></div>' +
+    '<div class="out-meta-item"><span class="lbl">作業日</span><span class="val">' + dateDisplay + '</span></div>' +
+    '<div class="out-meta-item"><span class="lbl">天気</span><span class="val">' + (weatherInfo.icon||'') + ' ' + weatherInfo.desc + ' 最高' + weatherInfo.tMax + '°C</span></div>';
+  var dl = document.getElementById('danger-list');
+  dl.innerHTML = '';
+  var colors = ['#FF4500','#E65C00','#CC7700'];
+  parsed.dangers.forEach(function(d, i) {
+    var div = document.createElement('div');
+    div.className = 'danger-card';
+    div.style.borderLeftColor = colors[i] || 'var(--orange)';
+    div.innerHTML = '<div class="d-num">危険ポイント ' + d.number + '</div><div class="d-title">⚠️ ' + d.title + '</div><div class="d-detail">' + d.detail + '</div><div class="d-measure">' + d.countermeasure + '</div>';
+    dl.appendChild(div);
+  });
+  document.getElementById('out-goal').textContent = parsed.goal;
+  document.getElementById('out-comment').textContent = parsed.comment;
+  document.getElementById('loading').classList.remove('show');
+  document.getElementById('ky-out').classList.add('show');
+}
+
+function setActionBtns(disabled) {
+  document.getElementById('btn-send').disabled = disabled;
+  document.getElementById('btn-schedule').disabled = disabled;
+}
+
+// ===== 今すぐ送信 =====
+async function sendNow() {
+  if (!kyData) return;
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  if (!gasUrl) { alert('GAS URLが設定されていません。\n「⚙️ 工事設定」からGAS URLを入力してください。'); return; }
+  var btn = document.getElementById('btn-send');
+  btn.disabled = true; btn.textContent = '送信中...';
+  try {
+    var payload = Object.assign({}, kyData, {sendMode:'immediate'});
+    await fetch(gasUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload) });
+    showToast('✅ 送信完了！メールを送りました。');
+  } catch(err) { alert('送信に失敗しました。\n' + err.message); }
+  btn.disabled = false; btn.textContent = '📤 今すぐ送信';
+}
+
+// ===== 日時指定送信 =====
+function openScheduleModal() {
+  if (!kyData) return;
+  var reservations = getReservations();
+  if (reservations.filter(function(r){return r.status==='pending';}).length >= 10) {
+    alert('送信予約は最大10件までです。\n予約一覧から不要な予約を削除してください。');
+    return;
+  }
+  var modal = document.getElementById('schedule-modal');
+  var info = document.getElementById('schedule-project-info');
+  info.textContent = '工事名：' + kyData.projectName + '　作業日：' + kyData.date;
+  initHourMinSelect('sched-hour', 'sched-min');
+  var defHour = localStorage.getItem('ky_default_hour') || '7';
+  var defMin = localStorage.getItem('ky_default_min') || '00';
+  document.getElementById('sched-hour').value = defHour;
+  document.getElementById('sched-min').value = defMin;
+  var today = new Date();
+  var y = today.getFullYear();
+  var m = String(today.getMonth()+1).padStart(2,'0');
+  var d = String(today.getDate()).padStart(2,'0');
+  var schedDateEl = document.getElementById('sched-date');
+  schedDateEl.value = y + '-' + m + '-' + d;
+  schedDateEl.min = y + '-' + m + '-' + d;
+  document.getElementById('schedule-warn').style.display = 'none';
+  modal.classList.add('open');
+}
+
+function closeScheduleModal() {
+  document.getElementById('schedule-modal').classList.remove('open');
+}
+
+function confirmSchedule() {
+  var schedDate = document.getElementById('sched-date').value;
+  var schedHour = parseInt(document.getElementById('sched-hour').value);
+  var schedMin = document.getElementById('sched-min').value;
+  var warnEl = document.getElementById('schedule-warn');
+  if (!schedDate) { warnEl.textContent = '送信日を選択してください'; warnEl.style.display = 'block'; return; }
+
+  // 過去・当日チェック
+  var now = new Date();
+  var sendDateTime = new Date(schedDate + 'T' + String(schedHour).padStart(2,'0') + ':' + schedMin + ':00');
+  if (sendDateTime <= now) {
+    warnEl.textContent = '過去の日時は選択できません。現在時刻より後を選択してください。';
+    warnEl.style.display = 'block';
+    return;
+  }
+  // 1時間制限なし（過去日時のみブロック）
+  warnEl.style.display = 'none';
+
+  // 二重登録チェック
+  var reservations = getReservations();
+  var duplicate = reservations.find(function(r) {
+    return r.projectName === kyData.projectName && r.kyDateVal === kyData.dateVal && r.status === 'pending';
+  });
+  if (duplicate) {
+    if (!confirm('「' + kyData.projectName + '」の同じ作業日の予約がすでに存在します。\n上書き登録しますか？')) return;
+    duplicate.status = 'cancelled';
+  }
+
+  // 確認ポップアップ
+  var days = ['日','月','火','水','木','金','土'];
+  var d = new Date(schedDate + 'T00:00:00');
+  var dateStr = (d.getMonth()+1) + '/' + d.getDate() + '（' + days[d.getDay()] + '）';
+  var timeStr = String(schedHour).padStart(2,'0') + ':' + schedMin;
+  if (!confirm(dateStr + ' ' + timeStr + ' に\n「' + kyData.projectName + '」のKYシートをメール送信します。\nよろしいですか？')) return;
+
+  // 予約登録
+  var reservation = {
+    id: Date.now().toString(),
+    projectName: kyData.projectName,
+    kyDateVal: kyData.dateVal,
+    kyDate: kyData.date,
+    schedDate: schedDate,
+    schedHour: schedHour,
+    schedMin: schedMin,
+    schedDateTime: sendDateTime.getTime(),
+    status: 'pending',
+    createdAt: now.getTime(),
+    kyData: kyData
+  };
+  reservations.push(reservation);
+  // 送信日時順にソート
+  reservations.sort(function(a,b){return a.schedDateTime - b.schedDateTime;});
+  saveReservations(reservations);
+
+  // GASに送信
+  sendScheduledToGas(reservation);
+  closeScheduleModal();
+  showToast('⏰ ' + dateStr + ' ' + timeStr + ' に送信予約しました！');
+}
+
+async function sendScheduledToGas(reservation) {
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  if (!gasUrl) return;
+  try {
+    var payload = Object.assign({}, reservation.kyData, {
+      sendMode: 'scheduled',
+      reservationId: reservation.id,
+      schedDate: reservation.schedDate,
+      schedHour: reservation.schedHour,
+      schedMin: reservation.schedMin
+    });
+    await fetch(gasUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload) });
+  } catch(err) { console.error('予約登録エラー:', err); }
+}
+
+// ===== 予約一覧 =====
+function renderReservationList() {
+  var list = document.getElementById('reservation-list');
+  var emptyEl = document.getElementById('reservation-empty');
+  var reservations = getReservations();
+  var active = reservations.filter(function(r){return r.status !== 'cancelled';});
+  active.sort(function(a,b){return a.schedDateTime - b.schedDateTime;});
+  list.innerHTML = '';
+  if (active.length === 0) {
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  var days = ['日','月','火','水','木','金','土'];
+  active.forEach(function(r) {
+    var d = new Date(r.schedDate + 'T00:00:00');
+    var dateStr = (d.getMonth()+1) + '/' + d.getDate() + '（' + days[d.getDay()] + '）';
+    var timeStr = String(r.schedHour).padStart(2,'0') + ':' + r.schedMin;
+    var statusText = r.status === 'sent' ? '✅ 送信済み' : '⏳ 送信予定';
+    var statusColor = r.status === 'sent' ? '#2a6' : '#5b9ef7';
+    var item = document.createElement('div');
+    item.className = 'reservation-item' + (r.status === 'sent' ? ' sent' : '');
+    item.innerHTML =
+      '<div class="reservation-info">' +
+      '<div class="reservation-date">📅 ' + dateStr + ' ' + timeStr + '</div>' +
+      '<div class="reservation-project">🏗️ ' + r.projectName + '（作業日：' + r.kyDate + '）</div>' +
+      '<div class="reservation-status" style="color:' + statusColor + ';">' + statusText + '</div>' +
+      '</div>' +
+      (r.status === 'pending' ? '<button class="reservation-del-btn" data-id="' + r.id + '">🗑️ 削除</button>' : '');
+    var delBtn = item.querySelector('.reservation-del-btn');
+    if (delBtn) {
+      var deleteHandler = function(id) {
+        return function() { deleteReservation(id); };
+      };
+      delBtn.addEventListener('touchend', function(e) { e.preventDefault(); deleteHandler(r.id)(); }, {passive:false});
+      delBtn.addEventListener('click', deleteHandler(r.id));
+    }
+    list.appendChild(item);
+  });
+}
+
+function deleteReservation(id) {
+  if (!confirm('この送信予約をキャンセルしますか？\n（スプレッドシートのデータは残ります）')) return;
+  var reservations = getReservations();
+  var target = reservations.find(function(r){return r.id === id;});
+  if (target) {
+    target.status = 'cancelled';
+    saveReservations(reservations);
+    notifyCancelToGas(target);
+    renderReservationList();
+    showToast('🗑️ 送信予約をキャンセルしました');
+  }
+}
+
+async function notifyCancelToGas(reservation) {
+  var gasUrl = localStorage.getItem('ky_gas_url') || '';
+  if (!gasUrl) return;
+  var adminEmails = (localStorage.getItem('ky_admin_email')||'').split('\n').map(function(e){return e.trim();}).filter(Boolean);
+  try {
+    await fetch(gasUrl, {
+      method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({ sendMode:'cancel', reservationId:reservation.id, projectName:reservation.projectName, kyDate:reservation.kyDate, schedDate:reservation.schedDate, schedHour:reservation.schedHour, schedMin:reservation.schedMin, adminEmails:adminEmails })
+    });
+  } catch(err) {}
+}
+
+function cleanOldReservations() {
+  var reservations = getReservations();
+  var threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+  var updated = reservations.filter(function(r) {
+    if (r.status === 'sent' && r.sentAt && r.sentAt < threeDaysAgo) return false;
+    if (r.status === 'cancelled') return false;
+    return true;
+  });
+  if (updated.length !== reservations.length) saveReservations(updated);
+}
+
+
+
+
+
+
+
+
+
+
+
+// ===== バックアップ =====
+function exportSettings() {
+  var data = {
+    v: APP_VERSION,
+    apiKey: localStorage.getItem('ky_gemini_api_key') || '',
+    groqKey: localStorage.getItem('ky_groq_api_key') || '',
+    engine: localStorage.getItem('ky_ai_engine') || 'gemini',
+    gasUrl: localStorage.getItem('ky_gas_url') || '',
+    adminEmail: localStorage.getItem('ky_admin_email') || '',
+    defaultHour: localStorage.getItem('ky_default_hour') || '7',
+    defaultMin: localStorage.getItem('ky_default_min') || '00',
+    projects: getProjects()
+  };
+  var text = 'KY_BACKUP_V1:' + btoa(encodeURIComponent(JSON.stringify(data)));
+  document.getElementById('backup-export').value = text;
+  showToast('✅ エクスポートテキストを生成しました。コピーして保存してください。');
+}
+
+function importSettings() {
+  var text = document.getElementById('backup-import').value.trim();
+  if (!text) { alert('バックアップテキストを貼り付けてください'); return; }
+  try {
+    if (!text.startsWith('KY_BACKUP_V1:')) throw new Error('無効なバックアップデータです');
+    var json = decodeURIComponent(atob(text.replace('KY_BACKUP_V1:', '')));
+    var data = JSON.parse(json);
+    if (!confirm('バックアップから設定を復元します。\n現在の設定は上書きされます。よろしいですか？')) return;
+    if (data.apiKey) localStorage.setItem('ky_gemini_api_key', data.apiKey);
+    if (data.groqKey) localStorage.setItem('ky_groq_api_key', data.groqKey);
+    if (data.engine) localStorage.setItem('ky_ai_engine', data.engine);
+    if (data.gasUrl) localStorage.setItem('ky_gas_url', data.gasUrl);
+    if (data.adminEmail) localStorage.setItem('ky_admin_email', data.adminEmail);
+    if (data.defaultHour) localStorage.setItem('ky_default_hour', data.defaultHour);
+    if (data.defaultMin) localStorage.setItem('ky_default_min', data.defaultMin);
+    if (data.projects) saveProjectsToStorage(data.projects);
+    renderProjectSelect();
+    loadSettingsPanel();
+    showToast('✅ 設定を復元しました！');
+  } catch(err) {
+    alert('復元に失敗しました。\nバックアップテキストが正しいか確認してください。\n' + err.message);
+  }
+}
+
+// ===== トースト =====
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 3500);
+}
+
+// ===== ボタンバインド（タッチ対応）=====
+function bindBtn(id, fn) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('touchend', function(e){ e.preventDefault(); e.stopPropagation(); fn(); }, {passive:false});
+  el.addEventListener('click', function(e){ e.stopPropagation(); fn(); });
+}
+
+// ===== 初期化実行 =====
+init();
+</script>
+</body>
+</html>
